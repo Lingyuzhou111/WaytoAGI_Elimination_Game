@@ -103,4 +103,33 @@ button:hover {
     0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
     50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
     100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+.super-rainbow-notice {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(45deg, #ff0000, #ff8000, #ffff00, #00ff00, #00ffff, #0000ff, #8000ff);
+    background-size: 400% 400%;
+    color: white;
+    padding: 15px 30px;
+    border-radius: 10px;
+    font-size: 28px;
+    font-weight: bold;
+    animation: rainbow 2s linear infinite, popAndFade 1.5s ease-out;
+    pointer-events: none;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+@keyframes rainbow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 100% 50%; }
+}
+
+@keyframes popAndFade {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+    20% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+    80% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
 } 
