@@ -17,6 +17,7 @@ const config = {
     rainbowBlockChance: 0.1,   // 10%概率生成彩虹方块
     baseScore: 10,            // 基础分数
     rainbowScore: 5,          // 彩虹方块分数
+    superRainbowScore: 20,    // 三个彩虹方块消除的分数
     comboTimeout: 1000,       // 连击判定时间窗口（毫秒）
     comboMultiplier: 0.5      // 连击额外分数倍数（每次连击增加50%）
 };
@@ -123,7 +124,7 @@ function startGame() {
     // 加载图片
     loadBlockImages()
         .then(() => {
-            // 图片加载完成后，移除加载提示
+            //   片加载完成后，移除加载提示
             loadingNotice.remove();
             // 切换界面
             document.getElementById('startScreen').style.display = 'none';
@@ -327,15 +328,17 @@ function checkThreeBlockMatch(block1, block2, block3) {
             return block1 === block2 && block2 === block3;
             
         case 1: // 一个彩虹方块
-            // 其余两个方块必须相同
+            // 获取非彩虹方块
             const normalBlocks = blocks.filter(block => block !== -1);
-            return normalBlocks[0] === normalBlocks[1];
+            // 确保剩余两个普通方块相同
+            return normalBlocks.length === 2 && normalBlocks[0] === normalBlocks[1];
             
         case 2: // 两个彩虹方块
             // 只要有一个普通方块就可以匹配
-            return blocks.some(block => block !== -1);
+            return blocks.some(block => block !== -1 && block !== null);
             
         case 3: // 三个彩虹方块
+            // 特殊情况：三个彩虹方块
             return true;
             
         default:
@@ -351,66 +354,147 @@ function logMatch(block1, block2, block3, isMatch) {
     }
 }
 
-// 修改检查匹配函数，添加日志
+// 添加检查彩虹方块周围匹配的函数
+function checkRainbowBlockMatches() {
+    let matchFound = false;
+    const directions = [
+        { dx: [-2, -1, 0], dy: [0, 0, 0] },  // 左向检查
+        { dx: [0, 1, 2], dy: [0, 0, 0] },    // 右向检查
+        { dx: [0, 0, 0], dy: [-2, -1, 0] },  // 上向检查
+        { dx: [0, 0, 0], dy: [0, 1, 2] }     // 下向检查
+    ];
+
+    // 遍历所有格子找彩虹方块
+    for (let y = 0; y < config.rows; y++) {
+        for (let x = 0; x < config.cols; x++) {
+            if (gameState.grid[y][x] === -1) { // 找到彩虹方块
+                // 检查四个方向
+                for (const dir of directions) {
+                    const blocks = [];
+                    let validCheck = true;
+
+                    // 收集方向上的三个方块
+                    for (let i = 0; i < 3; i++) {
+                        const checkX = x + dir.dx[i];
+                        const checkY = y + dir.dy[i];
+
+                        // 检查坐标是否在有效范围内
+                        if (checkX >= 0 && checkX < config.cols && 
+                            checkY >= 0 && checkY < config.rows) {
+                            blocks.push({
+                                x: checkX,
+                                y: checkY,
+                                value: gameState.grid[checkY][checkX]
+                            });
+                        } else {
+                            validCheck = false;
+                            break;
+                        }
+                    }
+
+                    if (validCheck && checkRainbowMatch(blocks)) {
+                        // 将匹配的方块添加到闪烁列表
+                        blocks.forEach(block => {
+                            if (!gameState.flashingBlocks.some(fb => 
+                                fb.x === block.x && fb.y === block.y)) {
+                                gameState.flashingBlocks.push({
+                                    x: block.x,
+                                    y: block.y,
+                                    imageIndex: block.value,
+                                    startTime: Date.now()
+                                });
+                            }
+                        });
+                        matchFound = true;
+                    }
+                }
+            }
+        }
+    }
+    return matchFound;
+}
+
+// 检查彩虹方块匹配条件
+function checkRainbowMatch(blocks) {
+    // 确保有三个方块
+    if (blocks.length !== 3) return false;
+
+    // 统计彩虹方块数量
+    const rainbowCount = blocks.filter(block => block.value === -1).length;
+    
+    // 获取普通方块
+    const normalBlocks = blocks.filter(block => block.value !== -1 && block.value !== null);
+
+    // 条件1：一个彩虹方块 + 两个相同普通方块
+    if (rainbowCount === 1 && normalBlocks.length === 2) {
+        return normalBlocks[0].value === normalBlocks[1].value;
+    }
+
+    // 条件2：两个彩虹方块 + 一个普通方块
+    if (rainbowCount === 2 && normalBlocks.length === 1) {
+        return true;
+    }
+
+    return false;
+}
+
+// 修改检查匹配函数
 function checkMatches() {
     let matchFound = false;
     
-    // 检查水平匹配
-    for (let y = 0; y < config.rows; y++) {
-        for (let x = 0; x < config.cols - 2; x++) {
-            if (gameState.grid[y][x] !== null) {
-                const block1 = gameState.grid[y][x];
-                const block2 = gameState.grid[y][x+1];
-                const block3 = gameState.grid[y][x+2];
-                
-                const isMatch = checkThreeBlockMatch(block1, block2, block3);
-                logMatch(block1, block2, block3, isMatch);
-                
-                if (isMatch) {
-                    gameState.flashingBlocks.push(
-                        {x: x, y: y, imageIndex: block1, startTime: Date.now()},
-                        {x: x+1, y: y, imageIndex: block2, startTime: Date.now()},
-                        {x: x+2, y: y, imageIndex: block3, startTime: Date.now()}
-                    );
-                    matchFound = true;
+    // 先检查彩虹方块的特殊匹配
+    matchFound = checkRainbowBlockMatches() || matchFound;
+    
+    // 如果没有彩虹方块匹配，再检查普通匹配
+    if (!matchFound) {
+        // 检查水平匹配
+        for (let y = 0; y < config.rows; y++) {
+            for (let x = 0; x < config.cols - 2; x++) {
+                if (gameState.grid[y][x] !== null && gameState.grid[y][x] !== -1) {
+                    const block1 = gameState.grid[y][x];
+                    const block2 = gameState.grid[y][x+1];
+                    const block3 = gameState.grid[y][x+2];
+                    
+                    if (block1 === block2 && block2 === block3) {
+                        gameState.flashingBlocks.push(
+                            {x: x, y: y, imageIndex: block1, startTime: Date.now()},
+                            {x: x+1, y: y, imageIndex: block2, startTime: Date.now()},
+                            {x: x+2, y: y, imageIndex: block3, startTime: Date.now()}
+                        );
+                        matchFound = true;
+                    }
+                }
+            }
+        }
+        
+        // 检查垂直匹配
+        for (let y = 0; y < config.rows - 2; y++) {
+            for (let x = 0; x < config.cols; x++) {
+                if (gameState.grid[y][x] !== null && gameState.grid[y][x] !== -1) {
+                    const block1 = gameState.grid[y][x];
+                    const block2 = gameState.grid[y+1][x];
+                    const block3 = gameState.grid[y+2][x];
+                    
+                    if (block1 === block2 && block2 === block3) {
+                        gameState.flashingBlocks.push(
+                            {x: x, y: y, imageIndex: block1, startTime: Date.now()},
+                            {x: x, y: y+1, imageIndex: block2, startTime: Date.now()},
+                            {x: x, y: y+2, imageIndex: block3, startTime: Date.now()}
+                        );
+                        matchFound = true;
+                    }
                 }
             }
         }
     }
-    
-    // 检查垂直匹配
-    for (let y = 0; y < config.rows - 2; y++) {
-        for (let x = 0; x < config.cols; x++) {
-            if (gameState.grid[y][x] !== null) {
-                const block1 = gameState.grid[y][x];
-                const block2 = gameState.grid[y+1][x];
-                const block3 = gameState.grid[y+2][x];
-                
-                const isMatch = checkThreeBlockMatch(block1, block2, block3);
-                logMatch(block1, block2, block3, isMatch);
-                
-                if (isMatch) {
-                    gameState.flashingBlocks.push(
-                        {x: x, y: y, imageIndex: block1, startTime: Date.now()},
-                        {x: x, y: y+1, imageIndex: block2, startTime: Date.now()},
-                        {x: x, y: y+2, imageIndex: block3, startTime: Date.now()}
-                    );
-                    matchFound = true;
-                }
-            }
-        }
-    }
-    
+
     if (matchFound) {
         setTimeout(() => {
             removeMatchedBlocks();
             // 在移除方块后再次检查是否有新的匹配
             setTimeout(() => {
-                if (checkMatches()) {
-                    // 如果有新的匹配，会再次触发整个流程
-                    return;
-                }
-            }, 50); // 短暂延迟以确保动画流畅
+                checkMatches();
+            }, 50);
         }, config.flashDuration);
     }
     
@@ -476,8 +560,13 @@ function updateScore() {
     // 计算消除中彩虹方块的数量
     const rainbowCount = gameState.flashingBlocks.filter(block => block.imageIndex === -1).length;
     
-    // 如果消除中包含彩虹方块，分数改为5分
-    if (rainbowCount > 0) {
+    // 根据彩虹方块数量决定分数
+    if (rainbowCount === 3) {
+        // 三个彩虹方块特殊消除
+        scoreToAdd = config.superRainbowScore; // 20分
+        showSuperRainbowEffect();
+    } else if (rainbowCount > 0) {
+        // 普通彩虹方块消除
         scoreToAdd = config.rainbowScore; // 5分
     }
     
@@ -675,4 +764,17 @@ function initTouchControls() {
         }
         e.preventDefault();
     });
+}
+
+// 添加超级彩虹消除效果的函数
+function showSuperRainbowEffect() {
+    const superEffect = document.createElement('div');
+    superEffect.className = 'super-rainbow-notice';
+    superEffect.textContent = '超级消除！+20分';
+    document.getElementById('gameScreen').appendChild(superEffect);
+    
+    // 添加特殊的动画效果
+    setTimeout(() => {
+        superEffect.remove();
+    }, 1500);
 }
