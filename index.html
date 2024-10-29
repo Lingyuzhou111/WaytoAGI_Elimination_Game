@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>消消乐游戏</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 游戏开始界面 -->
+    <div id="startScreen" class="screen">
+        <h1>消消乐游戏</h1>
+        <input type="text" id="playerId" placeholder="请输入玩家ID">
+        <button onclick="startGame()">开始游戏</button>
+    </div>
+
+    <!-- 游戏主界面 -->
+    <div id="gameScreen" class="screen" style="display: none;">
+        <div class="game-info">
+            <span>玩家：<span id="currentPlayer"></span></span>
+            <span>得分：<span id="score">0</span></span>
+        </div>
+        <!-- Canvas的实际大小会在JavaScript中设置 -->
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- 游戏结束界面 -->
+    <div id="gameOverScreen" class="screen" style="display: none;">
+        <h2>游戏结束</h2>
+        <div id="finalScore"></div>
+        <h3>排行榜</h3>
+        <div id="leaderboard"></div>
+        <button onclick="restartGame()">重新开始</button>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html> 
